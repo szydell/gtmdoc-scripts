@@ -23,19 +23,19 @@ jobs:
         run: dnf install -y wget rsync git tar
 
       - name: Checkout gtmdoc-scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: gtmdoc-scripts
 
       - name: Checkout gtmdoc target repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: szydell/gtmdoc
           token: ${{ secrets.GTMDOC_PAT }} # Wymaga ustawienia PAT w repozytorium scripts
           path: gtmdoc
           
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         
       - name: Setup Git identity
         run: |
