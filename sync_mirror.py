@@ -7,7 +7,7 @@ import argparse
 import datetime as dt
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -21,7 +21,7 @@ def run(cmd: list[str], cwd: Path | None = None, dry_run: bool = False) -> None:
     print(f"$ {pretty}")
     if dry_run:
         return
-    subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
+    subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)  # nosec B603
 
 
 def require_tool(name: str) -> None:
