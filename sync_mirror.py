@@ -126,6 +126,7 @@ def mirror(args: argparse.Namespace, script_dir: Path) -> Path:
         f"--domains={source_host}",
         "--execute",
         "robots=off",
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (gtm-mirror-bot)",
         "--directory-prefix",
         str(mirror_dir),
     ]
