@@ -1,0 +1,54 @@
+name: Daily Mirror
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Codziennie o 4:00 UTC
+  workflow_dispatch: # Możliwość ręcznego odpalania
+  push:
+    branches:
+      - main
+    paths:
+      - 'sync_mirror.py'
+      - '.github/workflows/mirror.yml'
+
+permissions:
+  contents: write # Umożliwia aktualizowanie docelowych repozytoriów
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Setup OS utilities (wget, rsync, git)
+        run: dnf install -y wget rsync git tar
+
+      - name: Checkout gtmdoc-scripts
+        uses: actions/checkout@v4
+        with:
+          path: gtmdoc-scripts
+
+      - name: Checkout gtmdoc target repo
+        uses: actions/checkout@v4
+        with:
+          repository: szydell/gtmdoc
+          token: ${{ secrets.GTMDOC_PAT }} # Wymaga ustawienia PAT w repozytorium scripts
+          path: gtmdoc
+          
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        
+      - name: Setup Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc-scripts
+          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc
+
+      - name: Run Mirror Sync
+        run: |
+          cd gtmdoc-scripts
+          uv run python sync_mirror.py \
+            --target-repo ../gtmdoc \
+            --target-domain mumps.pl \
+            --commit \
+            --push
