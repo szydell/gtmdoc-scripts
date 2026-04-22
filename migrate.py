@@ -24,6 +24,69 @@ def clean_html(soup: BeautifulSoup):
     content = soup.find('div', class_='sect1') or soup.find('div', class_='chapter') or soup.find('body')
     return content
 
+def rewrite_href(href: str) -> str:
+    """Rewrite HTML file links to Hugo pretty URLs, leave PDFs and external links as-is."""
+    if not href or href.startswith('http') or href.startswith('#') or href.endswith('.pdf'):
+        return href
+    if href.endswith('/index.html'):
+        return href[:-len('index.html')]
+    if href.endswith('.html'):
+        return href[:-5] + '/'
+    return href
+
+
+def index_html_to_markdown(soup: BeautifulSoup) -> str:
+    """Convert the GT.M index page HTML structure into clean Hugo Markdown."""
+    page = soup.find("div", class_="page")
+    if not page:
+        return ""
+
+    lines: list[str] = []
+
+    def render_entry(entry_div) -> None:
+        title_el = entry_div.find(class_="entry-title")
+        badges_el = entry_div.find(class_="badges")
+        if not title_el:
+            return
+        title = title_el.get_text(strip=True)
+        if not title:
+            return
+        # Try to find an <a> directly in entry-title; otherwise use first HTML badge
+        a = title_el.find("a")
+        href = rewrite_href(a.get("href", "")) if a else ""
+        if not href and badges_el:
+            first_badge = badges_el.find("a")
+            if first_badge:
+                href = rewrite_href(first_badge.get("href", ""))
+        line = f"- [{title}]({href})" if href else f"- {title}"
+        if badges_el:
+            for badge in badges_el.find_all("a"):
+                badge_text = badge.get_text(strip=True)
+                badge_href = rewrite_href(badge.get("href", ""))
+                css_class = "gtm-pdf" if "pdf" in badge_text.lower() else "gtm-html"
+                line += f' <a href="{badge_href}" class="{css_class}">{badge_text}</a>'
+        lines.append(line)
+
+    for section in page.find_all("section", recursive=False):
+        header = section.find(["h2", "h3"])
+        if header:
+            lines.append(f"\n## {header.get_text(strip=True)}\n")
+        for child in section.children:
+            if not hasattr(child, 'name') or not child.name:
+                continue
+            if child.name == "div" and "entry" in (child.get("class") or []):
+                render_entry(child)
+            elif child.name == "details":
+                summary = child.find("summary")
+                if summary:
+                    lines.append(f"\n### {summary.get_text(strip=True)}\n")
+                for entry in child.find_all("div", class_="entry"):
+                    render_entry(entry)
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = False):
     if not file_path.exists():
         return
@@ -35,43 +98,11 @@ def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = 
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
-    # Special handling for the main mirror homepage to preserve its CSS grid/flex layout
     if is_root_index:
-        # Extract style and the main page div, skipping the body background
-        style_tag = soup.find("style")
-        style_content = style_tag.string if style_tag else ""
-        # Provide stronger CSS scoping
-        style_content = style_content.replace("body {", ".hextra-wrapper {")
-        # Cancel Hextra prose margin-top on section headers
-        style_content += "\n    .hextra-wrapper section > h2, .hextra-wrapper section > h3 { margin-top: 0 !important; color: #fff !important; font-size: 1rem !important; font-weight: 600 !important; }\n"
-        
-        page_content = soup.find("div", class_="page")
-        html_str = str(page_content) if page_content else str(soup.body)
-        
-        # Strip the <header> block — title already appears in navbar
-        from bs4 import BeautifulSoup as _BS
-        _tmp = _BS(html_str, "html.parser")
-        _hdr = _tmp.find("header")
-        if _hdr:
-            _hdr.decompose()
-        html_str = str(_tmp)
-        
-        # Ensure consistent heading levels
-        html_str = html_str.replace('<h3>GT.M Release Notes</h3>', '<h2>GT.M Release Notes</h2>')
-        html_str = html_str.replace('<h3>Technical Bulletins</h3>', '<h2>Technical Bulletins</h2>')
-
-        # Rewrite link extensions for Hugo Hextra routing
-        html_str = html_str.replace('href="manuals/ao/index.html"', 'href="manuals/ao/"')
-        html_str = html_str.replace('href="manuals/mr/index.html"', 'href="manuals/mr/"')
-        html_str = html_str.replace('href="manuals/pg/index.html"', 'href="manuals/pg/"')
-        html_str = html_str.replace('.html"', '/"')
-        
-        # Enclose in our CSS payload scope
-        raw_html = f"<style>\n{style_content}\n</style>\n<div class=\"hextra-wrapper\">\n{html_str}\n</div>"
-        
+        md_content = index_html_to_markdown(soup)
         with open(output_file, "w", encoding="utf-8") as f:
-            f.write(f"---\ntitle: \"{title}\"\ntoc: false\n---\n\n")
-            f.write(raw_html)
+            f.write(f"---\ntitle: \"{title}\"\n---\n\n")
+            f.write(md_content)
         return
         
     content = clean_html(soup)
