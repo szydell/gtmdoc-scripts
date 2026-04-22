@@ -69,8 +69,11 @@ def index_html_to_markdown(soup: BeautifulSoup) -> str:
 
     for section in page.find_all("section", recursive=False):
         header = section.find(["h2", "h3"])
+        section_title = header.get_text(strip=True) if header else ""
         if header:
-            lines.append(f"\n## {header.get_text(strip=True)}\n")
+            lines.append(f"\n## {section_title}\n")
+        is_release_notes = "release notes" in section_title.lower()
+        details_count = 0
         for child in section.children:
             if not hasattr(child, 'name') or not child.name:
                 continue
@@ -78,10 +81,23 @@ def index_html_to_markdown(soup: BeautifulSoup) -> str:
                 render_entry(child)
             elif child.name == "details":
                 summary = child.find("summary")
-                if summary:
-                    lines.append(f"\n### {summary.get_text(strip=True)}\n")
-                for entry in child.find_all("div", class_="entry"):
-                    render_entry(entry)
+                summary_text = summary.get_text(strip=True) if summary else ""
+                entries = child.find_all("div", class_="entry")
+                if is_release_notes and details_count > 0:
+                    # Older version groups: heading visible (→ TOC) + list collapsed via shortcode
+                    if summary_text:
+                        lines.append(f"\n### {summary_text}\n")
+                    lines.append('{{< details title="Show releases" closed="true" >}}')
+                    for entry in entries:
+                        render_entry(entry)
+                    lines.append("{{< /details >}}")
+                else:
+                    # Newest version group (or non-release-notes): keep expanded as ### heading
+                    if summary_text:
+                        lines.append(f"\n### {summary_text}\n")
+                    for entry in entries:
+                        render_entry(entry)
+                details_count += 1
         lines.append("")
 
     return "\n".join(lines)

@@ -114,3 +114,4 @@ Styled in `head-end.html` — outlined pill buttons, color-coded, dark-mode-awar
 - Do not add `<style>` blocks inside `gtmdoc.svg` — colors are controlled externally via CSS variables
 - Do not use `sidebar.hide: true` on the root index front matter — the layout injects its own sidebar placeholder
 - Do not use `pip` or `python -m venv`
+- **Before writing any custom HTML/CSS**, always audit Hextra's built-in shortcodes first — Hextra v0.12.2 ships `details`, `callout`, `badge`, `tabs`, `cards`, `steps` and more. Check `~/.cache/hugo_cache/modules/filecache/modules/pkg/mod/github.com/imfing/hextra@*/layouts/_shortcodes/` or the [official Hextra shortcodes docs](https://imfing.github.io/hextra/docs/guide/shortcodes/).
