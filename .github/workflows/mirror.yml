@@ -17,10 +17,9 @@ permissions:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    container: fedora:latest
     steps:
       - name: Setup OS utilities (wget, rsync, git)
-        run: dnf install -y wget rsync git tar
+        run: sudo apt-get update && sudo apt-get install -y wget rsync git tar
 
       - name: Checkout gtmdoc-scripts
         uses: actions/checkout@v6
@@ -35,8 +34,16 @@ jobs:
           path: gtmdoc
           
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v5
         
+      - name: Restore Mirror Cache (Delta Updates)
+        uses: actions/cache@v4
+        with:
+          path: gtmdoc-scripts/.work/mirror
+          key: gtm-mirror-${{ github.run_id }}
+          restore-keys: |
+            gtm-mirror-
+            
       - name: Setup Git identity
         run: |
           git config --global user.name "github-actions[bot]"
@@ -47,6 +54,8 @@ jobs:
       - name: Run Mirror Sync
         run: |
           cd gtmdoc-scripts
+          uv add playwright
+          uv run playwright install --with-deps chromium
           uv run python sync_mirror.py \
             --target-repo ../gtmdoc \
             --target-domain mumps.pl \

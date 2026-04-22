@@ -1,3 +1,8 @@
+# specific project ignores
+.work
+cookies.txt
+output.txt
+index.html
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
