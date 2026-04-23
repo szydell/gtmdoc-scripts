@@ -1,0 +1,32 @@
+# Terraform state — nigdy nie commitować
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Pliki z tajnymi wartościami
+*.tfvars
+!*.tfvars.example
+
+# Katalogi Terraform
+.terraform/
+
+# .terraform.lock.hcl możesz commitować — piny wersji providerów (nieobowiązkowe)
+# .terraform.lock.hcl
+
+# Pliki z override'ami (lokalny dev)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Pliki plan
+*.tfplan
+*.plan
+
+# Crash log
+crash.log
+crash.*.log
+
+# CLI konfiguracja (może zawierać credentials)
+.terraformrc
+terraform.rc
