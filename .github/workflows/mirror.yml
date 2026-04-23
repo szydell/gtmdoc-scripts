@@ -26,19 +26,20 @@ jobs:
         with:
           path: gtmdoc-scripts
 
-      - name: Checkout gtmdoc target repo
-        uses: actions/checkout@v6
-        with:
-          repository: szydell/gtmdoc
-          token: ${{ secrets.GTMDOC_PAT }} # Wymaga ustawienia PAT w repozytorium scripts
-          path: gtmdoc
-          ref: main
+      - name: Checkout or init gtmdoc target repo
+        env:
+          GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
+        run: |
+          REPO_URL="https://x-access-token:${GTMDOC_PAT}@github.com/szydell/gtmdoc.git"
+          if git clone --depth=1 "$REPO_URL" gtmdoc 2>/dev/null; then
+            echo "Cloned existing repo"
+          fi
           
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
         
       - name: Restore Mirror Cache (Delta Updates)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: gtmdoc-scripts/.work/mirror
           key: gtm-mirror-${{ github.run_id }}
