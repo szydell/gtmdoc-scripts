@@ -1,0 +1,9 @@
+# Skopiuj do terraform.tfvars i wypełnij (plik jest w .gitignore)
+# cp terraform.tfvars.example terraform.tfvars
+
+aws_profile  = "mumps-terraform"
+aws_region   = "eu-central-1"
+environment  = "prod"
+domain_name  = "mumps.pl"
+bucket_name  = "prod-mumps-pl"
+price_class  = "PriceClass_100"
