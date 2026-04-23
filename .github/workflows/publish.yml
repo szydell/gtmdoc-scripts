@@ -80,10 +80,10 @@ jobs:
           hugo-version: '0.152.2'
           extended: true
 
-      - name: Build Hugo site
+      - name: Build Hugo site for S3/mumps.pl
         run: |
           cd gtmdoc-scripts/site
-          hugo --minify --gc
+          hugo --minify --gc --baseURL https://mumps.pl/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
