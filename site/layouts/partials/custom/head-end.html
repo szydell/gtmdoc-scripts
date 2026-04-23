@@ -1,0 +1,59 @@
+<style>
+  /* GT.M logo sizing */
+  .gtm-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* GT.M logo color variables */
+  :root {
+    --gtm-bg: #111111;
+    --gtm-fg: #ffffff;
+  }
+
+  .dark,
+  [data-theme="dark"] {
+    --gtm-bg: #f3f3f3;
+    --gtm-fg: #111111;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --gtm-bg: #f3f3f3;
+      --gtm-fg: #111111;
+    }
+  }
+
+  .logo-bg { fill: var(--gtm-bg); }
+  .logo-fg {
+    fill: none;
+    stroke: var(--gtm-fg);
+    stroke-width: 4.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* GT.M doc badge links (HTML / PDF) */
+  a.gtm-html, a.gtm-pdf {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    border: 1px solid;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+    line-height: 1.6;
+    transition: background 0.15s, color 0.15s;
+  }
+  a.gtm-html { color: #005a9c; border-color: #005a9c; }
+  a.gtm-html:hover { background: #005a9c; color: #fff; }
+  a.gtm-pdf  { color: #b91c1c; border-color: #b91c1c; }
+  a.gtm-pdf:hover  { background: #b91c1c; color: #fff; }
+
+  .dark a.gtm-html { color: #60a5fa; border-color: #60a5fa; }
+  .dark a.gtm-html:hover { background: #60a5fa; color: #0f172a; }
+  .dark a.gtm-pdf  { color: #f87171; border-color: #f87171; }
+  .dark a.gtm-pdf:hover  { background: #f87171; color: #0f172a; }
+</style>

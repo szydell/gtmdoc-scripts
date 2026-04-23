@@ -68,6 +68,12 @@ jobs:
           cd gtmdoc-scripts
           uv run python migrate.py
 
+      - name: Setup Go (required by Hugo modules / Hextra theme)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: gtmdoc-scripts/site/go.mod
+          cache-dependency-path: gtmdoc-scripts/site/go.sum
+
       - name: Install Hugo Extended
         uses: peaceiris/actions-hugo@v3
         with:

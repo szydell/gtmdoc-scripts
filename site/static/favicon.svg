@@ -1,0 +1,12 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GT.M">
+  <style>
+    .bg { fill: #111111; }
+    .fg { fill: none; stroke: #ffffff; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #f3f3f3; }
+      .fg { stroke: #111111; }
+    }
+  </style>
+  <rect class="bg" x="4" y="4" width="56" height="56" rx="14"/>
+  <polyline class="fg" points="12,29 19,19 26,29"/>
+</svg>
