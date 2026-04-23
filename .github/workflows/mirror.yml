@@ -52,6 +52,22 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc-scripts
           git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc
+          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc-mumps.pl
+
+      - name: Checkout gtmdoc-mumps.pl site repo
+        env:
+          GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
+        run: |
+          REPO_URL="https://x-access-token:${GTMDOC_PAT}@github.com/szydell/gtmdoc-mumps.pl.git"
+          if git clone --depth=1 "$REPO_URL" gtmdoc-mumps.pl 2>/dev/null; then
+            echo "Cloned gtmdoc-mumps.pl"
+          else
+            mkdir -p gtmdoc-mumps.pl
+            cd gtmdoc-mumps.pl
+            git init
+            git remote add origin "$REPO_URL"
+          fi
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/gtmdoc-mumps.pl"
 
       - name: Run Mirror Sync
         run: |
@@ -63,3 +79,40 @@ jobs:
             --target-domain mumps.pl \
             --commit \
             --push
+
+      - name: Run migrate.py
+        run: |
+          cd gtmdoc-scripts
+          uv run python migrate.py
+
+      - name: Install Hugo Extended
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.152.2'
+          extended: true
+
+      - name: Build Hugo site
+        run: |
+          cd gtmdoc-scripts/site
+          hugo --minify --gc
+
+      - name: Sync static site to gtmdoc-mumps.pl
+        run: |
+          rsync -a --delete \
+            --exclude='.git/' \
+            gtmdoc-scripts/site/public/ \
+            gtmdoc-mumps.pl/
+
+      - name: Commit and push gtmdoc-mumps.pl
+        env:
+          GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
+        run: |
+          cd gtmdoc-mumps.pl
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+          else
+            git commit -m "Publish Hugo site (${TIMESTAMP})"
+            git push origin HEAD:main
+          fi
