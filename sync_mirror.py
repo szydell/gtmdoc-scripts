@@ -279,11 +279,16 @@ def maybe_commit_and_push(args: argparse.Namespace, target_repo: Path) -> None:
     run(["git", "status", "--short"], cwd=target_repo, dry_run=args.dry_run)
 
     if args.commit or args.push:
+        # Ensure we are on the target branch (handles detached HEAD and empty repos).
+        # git checkout -B creates the branch if it doesn't exist, or resets it to
+        # current HEAD if it does — safe for both fresh clones and subsequent runs.
+        run(["git", "checkout", "-B", args.branch], cwd=target_repo, dry_run=args.dry_run)
         run(["git", "add", "-A"], cwd=target_repo, dry_run=args.dry_run)
         run(["git", "commit", "-m", msg], cwd=target_repo, dry_run=args.dry_run)
 
     if args.push:
-        run(["git", "push", "origin", args.branch], cwd=target_repo, dry_run=args.dry_run)
+        # Use HEAD:branch so the push works regardless of local HEAD state.
+        run(["git", "push", "origin", f"HEAD:{args.branch}"], cwd=target_repo, dry_run=args.dry_run)
 
 
 def main() -> int:
