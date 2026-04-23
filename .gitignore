@@ -3,6 +3,7 @@
 cookies.txt
 output.txt
 index.html
+terraform/terraform.tfvars
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

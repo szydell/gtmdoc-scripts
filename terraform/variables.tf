@@ -31,5 +31,11 @@ variable "bucket_name" {
 variable "price_class" {
   description = "Klasa cenowa CloudFront (PriceClass_100 = tylko Europa + USA — najtaniej)"
   type        = string
-  default     = "PriceClass_100"
+  default     = "PriceClass_All"
+}
+
+variable "web_acl_id" {
+  description = "ARN Web ACL (WAFv2) powiązanego z dystrybucją CloudFront; pusty string = brak WAF"
+  type        = string
+  default     = ""
 }

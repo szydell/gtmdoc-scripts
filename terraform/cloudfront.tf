@@ -2,6 +2,25 @@
 # CloudFront — dystrybucja z OAC (Origin Access Control, nowsze niż OAI)
 # ---------------------------------------------------------------------------
 
+# CloudFront Function — dopisuje index.html do żądań katalogowych
+resource "aws_cloudfront_function" "rewrite_uri" {
+  name    = "${var.bucket_name}-rewrite-uri"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = <<-EOF
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+      if (uri.endsWith('/')) {
+        request.uri += 'index.html';
+      } else if (!uri.includes('.')) {
+        request.uri += '/index.html';
+      }
+      return request;
+    }
+  EOF
+}
+
 # OAC — kontrola dostępu do S3 bez publicznego URL bucketu
 resource "aws_cloudfront_origin_access_control" "site" {
   name                              = "${var.bucket_name}-oac"
@@ -16,6 +35,7 @@ resource "aws_cloudfront_distribution" "site" {
   comment             = "${var.domain_name} — static site"
   default_root_object = "index.html"
   price_class         = var.price_class
+  web_acl_id          = var.web_acl_id != "" ? var.web_acl_id : null
   aliases             = [var.domain_name, "www.${var.domain_name}"]
 
   # Źródło — S3 bucket (dostęp przez OAC, nie publiczny URL)
@@ -38,6 +58,11 @@ resource "aws_cloudfront_distribution" "site" {
 
     # Managed origin request policy: S3Origin (nie przesyła nagłówków do S3)
     origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_uri.arn
+    }
   }
 
   # Strony błędów — Hugo SPA / statyczny routing

@@ -39,29 +39,26 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
 # Polityka bucket — pozwala tylko CloudFront OAC na GetObject
 resource "aws_s3_bucket_policy" "site" {
   bucket = aws_s3_bucket.site.id
-  policy = data.aws_iam_policy_document.s3_cloudfront_oac.json
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowCloudFrontServicePrincipal"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.site.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.site.arn
+          }
+        }
+      }
+    ]
+  })
 
   # Politykę można ustawić dopiero po wyłączeniu publicznego dostępu
   depends_on = [aws_s3_bucket_public_access_block.site]
-}
-
-data "aws_iam_policy_document" "s3_cloudfront_oac" {
-  statement {
-    sid    = "AllowCloudFrontServicePrincipal"
-    effect = "Allow"
-
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.site.arn}/*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.site.arn]
-    }
-  }
 }

@@ -69,6 +69,13 @@
         "cloudfront:ListOriginAccessControls",
         "cloudfront:CreateInvalidation",
         "cloudfront:ListInvalidations",
+        "cloudfront:CreateFunction",
+        "cloudfront:UpdateFunction",
+        "cloudfront:DeleteFunction",
+        "cloudfront:GetFunction",
+        "cloudfront:ListFunctions",
+        "cloudfront:PublishFunction",
+        "cloudfront:DescribeFunction",
         "cloudfront:TagResource",
         "cloudfront:UntagResource",
         "cloudfront:ListTagsForResource"
