@@ -16,6 +16,7 @@ Mirror GT.M documentation from `https://fis-gtm.sourceforge.io/` and republish i
 - Crawls upstream with `wget`, stores result in `.work/mirror/`
 - Rewrites absolute links (`fis-gtm.sourceforge.io` → `mumps.pl`)
 - Optionally rsyncs to sibling repo `../gtmdoc` and git-pushes
+- Generates `../gtmdoc/README.md` with current PDF revision info (version + date) extracted via `pdftotext` (from `poppler-utils`)
 
 ### Stage 2 — `migrate.py`
 - Reads `.work/mirror/`, writes Hugo Markdown to `site/content/`
@@ -105,6 +106,7 @@ Styled in `head-end.html` — outlined pill buttons, color-coded, dark-mode-awar
 - **Package manager: `uv` exclusively** — do not use `pip`, do not create `venv` manually
 - Run scripts: `uv run migrate.py`, `uv run python sync_mirror.py`
 - Dependencies declared in `pyproject.toml`: `beautifulsoup4`, `markdownify`
+- **System dependency: `poppler-utils`** (`pdftotext`) — required by `sync_mirror.py` to extract version and date from PDFs; install with `sudo dnf install poppler-utils` (Fedora) or `sudo apt-get install poppler-utils` (Debian/Ubuntu/CI)
 
 ---
 

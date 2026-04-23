@@ -18,8 +18,8 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup OS utilities (wget, rsync, git)
-        run: sudo apt-get update && sudo apt-get install -y wget rsync git tar
+      - name: Setup OS utilities (wget, rsync, git, poppler-utils)
+        run: sudo apt-get update && sudo apt-get install -y wget rsync git tar poppler-utils
 
       - name: Checkout gtmdoc-scripts
         uses: actions/checkout@v6

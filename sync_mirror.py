@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import re
 import time
 import os
 import shutil
@@ -15,6 +16,14 @@ from pathlib import Path
 
 DEFAULT_SOURCE = "https://fis-gtm.sourceforge.io/"
 DEFAULT_TARGET_DOMAIN = "mumps.pl"
+
+GITHUB_BASE = "https://github.com/szydell/gtmdoc/blob/master"
+
+MANUALS = [
+    ("Administration and Operations Guide", "manuals/ao/ao_screen.pdf"),
+    ("Programmer's Guide", "manuals/pg/pg_screen.pdf"),
+    ("Messages and Recovery Procedures Manual", "manuals/mr/mr_screen.pdf"),
+]
 
 
 def run(cmd: list[str], cwd: Path | None = None, dry_run: bool = False, ignore_codes: list[int] | None = None) -> None:
@@ -125,6 +134,56 @@ def run_wget_with_retry(base_cmd: list[str], url: str, work_dir: Path, dry_run: 
 def require_tool(name: str) -> None:
     if shutil.which(name) is None:
         raise SystemExit(f"Missing required tool: {name}")
+
+
+def parse_pdf_info(pdf_path: Path) -> tuple[str, str]:
+    """Extract version (e.g. V7.1-011) and publication date from a GT.M PDF."""
+    if not pdf_path.exists():
+        return "", ""
+    if shutil.which("pdftotext") is None:
+        return "", ""
+    try:
+        result = subprocess.run(  # nosec B603
+            ["pdftotext", "-f", "1", "-l", "2", str(pdf_path), "-"],
+            capture_output=True, text=True, check=True,
+        )
+    except subprocess.CalledProcessError:
+        return "", ""
+
+    version = ""
+    date = ""
+    lines = result.stdout.splitlines()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not version and re.match(r"^V\d+\.\d+-\d+$", stripped):
+            version = stripped
+        if "Publication date" in stripped:
+            rest = stripped.replace("Publication date", "").strip()
+            if rest:
+                date = rest
+            elif i + 1 < len(lines):
+                date = lines[i + 1].strip()
+    return version, date
+
+
+def generate_readme(target_repo: Path) -> None:
+    """Write README.md to target_repo with current PDF revision info."""
+    lines = [
+        "# gtmdoc\n",
+        "Track changes in the gt.m documentation\n",
+        "Visit the site with documents mirror at https://mumps.pl\n",
+    ]
+    for name, rel_pdf in MANUALS:
+        pdf_path = target_repo / rel_pdf
+        version, date = parse_pdf_info(pdf_path)
+        parts = [f"* [{name} PDF]({GITHUB_BASE}/{rel_pdf})"]
+        if version or date:
+            parts.append(f"Revision {version} {date}".strip())
+        lines.append(" ".join(parts))
+
+    readme_path = target_repo / "README.md"
+    readme_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[*] Generated {readme_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -303,6 +362,7 @@ def main() -> int:
 
     mirror_dir = mirror(args, script_dir)
     target_repo = deploy(args, mirror_dir, script_dir)
+    generate_readme(target_repo)
     maybe_commit_and_push(args, target_repo)
 
     print("Done.")
