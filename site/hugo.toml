@@ -18,11 +18,19 @@ disablePathToLower = true
   [params.search]
     enable = true
     type = "flexsearch"
+    [params.search.flexsearch]
+      index = "heading"
 
 [markup]
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
+
+[[menus.main]]
+  name = "search"
+  weight = 90
+  [menus.main.params]
+    type = "search"
 
 [[menus.main]]
   name = "theme"
