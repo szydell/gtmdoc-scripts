@@ -6,7 +6,9 @@ This file provides context for AI coding assistants (GitHub Copilot, Cursor, Aid
 
 ## Project goal
 
-Mirror GT.M documentation from `https://fis-gtm.sourceforge.io/` and republish it as a modern static site (Hugo + Hextra theme) at `https://szydell.github.io/gtmdoc-mumps.pl/`.
+Mirror GT.M documentation from `https://fis-gtm.sourceforge.io/` and republish it as a modern static site (Hugo + Hextra theme) at `https://mumps.pl/`.
+
+**Deployment**: Hugo builds to `site/public/`, which is synced to **AWS S3** and distributed via **CloudFront**. Built files are also committed to the sibling repo `../gtmdoc-mumps.pl` as a static source mirror. **GitHub Pages is NOT used.**
 
 ---
 
@@ -22,6 +24,7 @@ Mirror GT.M documentation from `https://fis-gtm.sourceforge.io/` and republish i
 - Reads `.work/mirror/`, writes Hugo Markdown to `site/content/`
 - Root `index.html` → `site/content/_index.md` via `index_html_to_markdown()`
 - Other HTML pages → Markdown via `markdownify`; framesets get a stub landing page
+- **Manual directories** (those containing both `index.html` and `toc.html`) are handled specially — see *Manual (DocBook frameset) handling* below
 - Static assets (PDF, PNG, CSS…) copied as-is
 - Safe to re-run; all output is overwritten
 
@@ -56,7 +59,7 @@ Key `hugo.toml` flags:
 |---|---|
 | `site/layouts/index.html` | Home page: invisible sidebar placeholder (width balance) + TOC + content |
 | `site/layouts/partials/navbar-title.html` | Renders logo as inline SVG via `readFile` so CSS `var()` works |
-| `site/layouts/partials/custom/head-end.html` | Injects `<style>` into `<head>`: logo CSS variables + badge link styles |
+| `site/layouts/partials/custom/head-end.html` | Injects `<style>` into `<head>`: logo CSS variables + badge link styles + manuals-specific width/sidebar overrides |
 
 ---
 
@@ -90,6 +93,34 @@ Styled in `head-end.html` — outlined pill buttons, color-coded, dark-mode-awar
 
 ---
 
+## Manual (DocBook frameset) handling
+
+Manual directories (`manuals/ao/`, `manuals/mr/`, `manuals/pg/`) contain a two-frame DocBook layout: `index.html` (frameset), `toc.html` (left nav), `titlepage.html` (cover), and per-chapter HTML files.
+
+`migrate.py` detects a manual directory by the presence of **both** `toc.html` and `index.html`:
+
+- `toc.html` — **skipped** (pure navigation, no output page)
+- `index.html` — generates `_index.md` sourced from `titlepage.html` (real cover content), with `type: docs` + `cascade: width: full`; the `cascade` propagates Hextra's native full-width page mode to every subpage
+- All other `.html` — generates `{stem}.md` with `type: docs` + `weight` derived from TOC link order via `parse_manual_toc()`
+
+Key functions in `migrate.py`:
+- `parse_manual_toc(toc_path)` — returns `{stem: weight}` dict in TOC reading order
+- `process_html_file(..., cascade=dict)` — writes `cascade:` block into frontmatter
+
+### Why `type: docs`?
+
+Hextra's default `layouts/single.html` hardcodes `disableSidebar: true`. Manual subpages need the sidebar, so `type: docs` forces Hugo to use `layouts/docs/single.html` (sidebar visible).
+
+### Width & sidebar for manuals
+
+`head-end.html` injects additional CSS when `{{ eq .Section "manuals" }}`:
+- `--hextra-max-content-width: 100%` — removes the 72rem content width cap
+- `.hextra-sidebar-container` and `.hx\:md\:w-64` set to `20rem` (default: 16rem = 256px) — widens the left nav to reduce wrapping
+
+Hextra's native `params.page.width` controls `--hextra-max-page-width` (page shell) and is set via `cascade: width: full` in `_index.md`.
+
+---
+
 ## Front matter conventions
 
 | Page type | Front matter |
@@ -98,6 +129,8 @@ Styled in `head-end.html` — outlined pill buttons, color-coded, dark-mode-awar
 | Subpages (converted HTML) | `title` + `sidebar:\n  hide: true` |
 | Auto-generated section index | `title` + `toc: false` |
 | Frameset stub | `title` + `toc: false` |
+| Manual landing (`_index.md`) | `title` + `type: docs` + `cascade:\n  width: full` |
+| Manual subpage | `title` + `type: docs` + `weight: <N>` |
 
 ---
 

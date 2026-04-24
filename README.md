@@ -9,13 +9,13 @@ The pipeline has two stages:
 1. **Mirror** — `sync_mirror.py` crawls `https://fis-gtm.sourceforge.io/` and stores a local copy in `.work/mirror/`.
 2. **Migrate** — `migrate.py` converts the mirrored HTML into Markdown for Hugo (Hextra theme) and writes output to `site/content/`.
 
-The Hugo site lives in `site/` and is published to GitHub Pages at `https://szydell.github.io/gtmdoc-mumps.pl/`.
+The Hugo site lives in `site/` and is deployed to **S3 + CloudFront** at `https://mumps.pl/`. Built static files are also committed to the sibling repo `../gtmdoc-mumps.pl` (source mirror, not GitHub Pages).
 
 ## Stack
 
 - **Python + uv** — dependency management, no manual venv needed
 - **Hugo Extended v0.152.2** with [Hextra](https://github.com/imfing/hextra) theme v0.12.2
-- **GitHub Pages** — static hosting
+- **S3 + CloudFront** — static hosting at `https://mumps.pl/`
 
 ## Repository layout
 
@@ -85,8 +85,16 @@ hugo                 # production build → site/public/
 | `site/hugo.toml` | `disablePathToLower = true`, flexsearch, theme-toggle in navbar |
 | `site/layouts/index.html` | Home page: sidebar placeholder + TOC + content |
 | `site/layouts/partials/navbar-title.html` | Inline SVG logo via `readFile` |
-| `site/layouts/partials/custom/head-end.html` | CSS custom properties for logo dark mode; badge link styles |
+| `site/layouts/partials/custom/head-end.html` | Logo CSS vars; badge styles; manuals full-width + wider sidebar overrides |
 | `site/static/images/gtmdoc.svg` | Logo — uses `var(--gtm-bg)` / `var(--gtm-fg)` |
+
+### Manuals layout
+
+DocBook manuals (`manuals/ao`, `mr`, `pg`) are converted with special handling in `migrate.py`:
+- Left-nav frame (`toc.html`) is parsed to determine chapter order (`weight`)
+- Section landing page is generated from `titlepage.html` (real cover, not frameset stub)
+- All pages get `type: docs` (enables sidebar) and `cascade: width: full` (full-width layout via Hextra native `params.page.width`)
+- `head-end.html` widens the sidebar from 16rem → 20rem and removes the 72rem content-width cap, for `Section == "manuals"` pages only
 
 ### Dark mode
 
