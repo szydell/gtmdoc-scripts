@@ -177,6 +177,60 @@ def transform_inline_media(soup) -> dict:
     return markers
 
 
+def transform_single_cell_list_tables(soup) -> dict:
+    """Preserve one-cell bordered list tables as raw HTML markers.
+
+    Some DocBook pages use an informaltable/table with a single <td> solely to box an
+    ordered or unordered list. markdownify flattens that pattern into a one-line table
+    cell. Replacing the wrapper with a marker that restores the original HTML preserves
+    both the list semantics and the visible frame.
+    """
+    markers = {}
+    counter = 0
+
+    for table in soup.find_all(['table', 'div'], class_=['informaltable']):
+        candidate = table
+        if table.name == 'div':
+            inner_table = table.find('table')
+            if not inner_table:
+                continue
+            candidate = inner_table
+
+        rows = candidate.find_all('tr')
+        if len(rows) != 1:
+            continue
+
+        cells = rows[0].find_all(['td', 'th'])
+        if len(cells) != 1:
+            continue
+
+        cell = cells[0]
+        children = [child for child in cell.children if getattr(child, 'name', None)]
+        if len(children) != 1:
+            continue
+
+        only_child = children[0]
+        if only_child.name == 'div' and 'orderedlist' in (only_child.get('class') or []):
+            list_node = only_child.find(['ol', 'ul'], recursive=False)
+        else:
+            list_node = only_child if only_child.name in ('ol', 'ul') else None
+
+        if not list_node:
+            continue
+
+        html_fragment = str(table if table.name == 'div' else candidate)
+        fragment_soup = BeautifulSoup(html_fragment, 'html.parser')
+        for link in fragment_soup.find_all('a', href=True):
+            link['href'] = rewrite_href(link['href'])
+
+        key = f'ZZZLISTTABLE{counter}ZZZ'
+        counter += 1
+        markers[key] = str(fragment_soup)
+        table.replace_with(NavigableString(key))
+
+    return markers
+
+
 def rewrite_href(href: str) -> str:
     """Rewrite HTML file links to Hugo pretty URLs, leave PDFs and external links as-is."""
     if not href or href.startswith('http') or href.startswith('#') or href.endswith('.pdf'):
@@ -337,6 +391,7 @@ def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = 
     anchor_markers = transform_anchors(content)
     markers = transform_admonitions(content)
     inline_img_markers = transform_inline_media(content)
+    list_table_markers = transform_single_cell_list_tables(content)
     md_content = markdownify.markdownify(str(content).replace('\u00a0', ' '), heading_style="ATX", strip=['script', 'style'])
     for key, shortcode in markers.items():
         md_content = md_content.replace(key, shortcode)
@@ -344,6 +399,8 @@ def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = 
     # that the anchor loop below then resolves.
     for key, img_html in inline_img_markers.items():
         md_content = md_content.replace(key, img_html)
+    for key, table_html in list_table_markers.items():
+        md_content = md_content.replace(key, table_html)
     for key, span in anchor_markers.items():
         md_content = md_content.replace(key, span)
     md_content = rewrite_html_links(md_content, file_path.stem)
