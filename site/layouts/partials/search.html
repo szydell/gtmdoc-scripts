@@ -1,0 +1,212 @@
+{{- $placeholder := (T "searchPlaceholder") | default "Search..." -}}
+
+<div class="hextra-search-wrapper hx:relative hx:md:w-64">
+  <div class="hx:relative hx:flex hx:items-center hx:text-gray-900 hx:contrast-more:text-gray-800 hx:dark:text-gray-300 hx:contrast-more:dark:text-gray-300">
+    <input
+      placeholder="{{ $placeholder }}"
+      aria-label="{{ $placeholder }}"
+      class="hextra-search-input hx:hextra-focus-visible hx:block hx:w-full hx:appearance-none hx:rounded-lg hx:px-3 hx:py-2 hx:transition-colors hx:text-base hx:leading-tight hx:md:text-sm hx:bg-black/[.05] hx:dark:bg-gray-50/10 hx:focus-visible:bg-white hx:dark:focus-visible:bg-dark hx:placeholder:text-gray-500 hx:dark:placeholder:text-gray-400 hx:contrast-more:border hx:contrast-more:border-current"
+      type="search"
+      autocomplete="off"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx:absolute hx:my-1.5 hx:select-none hx:ltr:right-1.5 hx:rtl:left-1.5 hx:h-5 hx:rounded-sm hx:bg-white hx:px-1.5 hx:font-mono hx:text-[10px] hx:font-medium hx:text-gray-500 hx:border hx:border-gray-200 hx:dark:border-gray-100/20 hx:dark:bg-dark/50 hx:contrast-more:border-current hx:contrast-more:text-current hx:contrast-more:dark:border-current hx:items-center hx:gap-1 hx:transition-opacity hx:pointer-events-none hx:hidden hx:sm:flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="hextra-search-results hextra-scrollbar hx:hidden hx:border hx:border-gray-200 hx:bg-white hx:text-gray-100 hx:dark:border-neutral-800 hx:dark:bg-neutral-900 hx:absolute hx:top-full hx:z-20 hx:mt-2 hx:overflow-auto hx:overscroll-contain hx:rounded-xl hx:py-2.5 hx:shadow-xl hx:max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] hx:md:max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx:inset-x-0 hx:ltr:md:left-auto hx:rtl:md:right-auto hx:contrast-more:border hx:contrast-more:border-gray-900 hx:contrast-more:dark:border-gray-50 hx:w-screen hx:min-h-[100px] hx:max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      aria-label="{{ (T "searchResults") | default "Search results" }}"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+    <div class="hextra-search-status hx:sr-only" aria-live="polite" role="status"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var pagefindModule = null;
+  var debounceTimer = null;
+  var PAGEFIND_URL = {{ "pagefind/pagefind.js" | relURL | jsonify }};
+
+  /* ── helpers ── */
+
+  function getActiveWrapper() {
+    var all = document.querySelectorAll('.hextra-search-wrapper');
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].offsetParent !== null) return all[i];
+    }
+    return all[0] || null;
+  }
+
+  function getEls(wrapper) {
+    if (!wrapper) return null;
+    return {
+      input:   wrapper.querySelector('.hextra-search-input'),
+      results: wrapper.querySelector('.hextra-search-results'),
+      status:  wrapper.querySelector('.hextra-search-status'),
+    };
+  }
+
+  function hideResults(els) {
+    els.results.classList.add('hx:hidden');
+  }
+
+  function showResults(els) {
+    els.results.classList.remove('hx:hidden');
+  }
+
+  function finishSearch(els) {
+    els.input.value = '';
+    hideResults(els);
+    els.input.blur();
+  }
+
+  /* ── pagefind lazy init ── */
+
+  async function initPagefind() {
+    if (pagefindModule) return pagefindModule;
+    pagefindModule = await import(PAGEFIND_URL);
+    await pagefindModule.init();
+    return pagefindModule;
+  }
+
+  /* ── search ── */
+
+  async function doSearch(query) {
+    var wrapper = getActiveWrapper();
+    var els = getEls(wrapper);
+    if (!els) return;
+
+    els.results.innerHTML = '';
+
+    if (!query) {
+      hideResults(els);
+      return;
+    }
+
+    var pf = await initPagefind();
+    var search = await pf.search(query);
+    var topResults = search.results.slice(0, 10);
+
+    if (!topResults.length) {
+      hideResults(els);
+      return;
+    }
+
+    var dataItems = await Promise.all(topResults.map(function (r) { return r.data(); }));
+    var fragment = document.createDocumentFragment();
+
+    dataItems.forEach(function (data, i) {
+      var li   = document.createElement('li');
+      var link = document.createElement('a');
+      link.dataset.index = i;
+      link.href = data.url;
+      if (i === 0) link.classList.add('hextra-search-active');
+
+      var title = document.createElement('div');
+      title.className = 'hextra-search-title';
+      title.textContent = data.meta.title || data.url;
+      link.appendChild(title);
+
+      if (data.excerpt) {
+        var excerpt = document.createElement('div');
+        excerpt.className = 'hextra-search-excerpt';
+        /* pagefind returns plain-text excerpt with <mark> tags only — safe as innerHTML */
+        excerpt.innerHTML = data.excerpt;
+        link.appendChild(excerpt);
+      }
+
+      link.addEventListener('click', function () { finishSearch(els); });
+      li.addEventListener('mousemove', function (e) {
+        var target = e.target.closest('a');
+        if (!target) return;
+        var prev = els.results.querySelector('a.hextra-search-active');
+        if (prev) prev.classList.remove('hextra-search-active');
+        target.classList.add('hextra-search-active');
+      });
+      li.appendChild(link);
+      fragment.appendChild(li);
+    });
+
+    els.results.appendChild(fragment);
+    els.results.dataset.count = dataItems.length;
+    showResults(els);
+  }
+
+  /* ── keyboard navigation ── */
+
+  function moveActive(els, direction) {
+    var links = Array.from(els.results.querySelectorAll('a'));
+    if (!links.length) return;
+    var active = els.results.querySelector('a.hextra-search-active');
+    var idx = active ? parseInt(active.dataset.index, 10) : -1;
+    var next = links[Math.max(0, Math.min(links.length - 1, idx + direction))];
+    if (active) active.classList.remove('hextra-search-active');
+    next.classList.add('hextra-search-active');
+    next.scrollIntoView({ block: 'nearest' });
+  }
+
+  /* ── wire up ── */
+
+  document.addEventListener('DOMContentLoaded', function () {
+
+    /* Global Ctrl+K / Escape */
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        var wrapper = getActiveWrapper();
+        var els = getEls(wrapper);
+        if (els) { els.input.focus(); els.input.select(); }
+      }
+      if (e.key === 'Escape') {
+        var wrapper = getActiveWrapper();
+        var els = getEls(wrapper);
+        if (els) { hideResults(els); els.input.blur(); }
+      }
+    });
+
+    /* Wire each wrapper (desktop + mobile hamburger) */
+    document.querySelectorAll('.hextra-search-wrapper').forEach(function (wrapper) {
+      var els = getEls(wrapper);
+      if (!els) return;
+
+      /* Pre-warm pagefind on first focus */
+      els.input.addEventListener('focus', function () {
+        initPagefind();
+        if (els.input.value.trim()) showResults(els);
+      });
+
+      /* Search with debounce */
+      els.input.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        var q = els.input.value.trim();
+        debounceTimer = setTimeout(function () { doSearch(q); }, 200);
+      });
+
+      /* Arrow navigation + Enter */
+      els.input.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(els, 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(els, -1); }
+        else if (e.key === 'Enter') {
+          e.preventDefault();
+          var active = els.results.querySelector('a.hextra-search-active');
+          if (active) active.click();
+        }
+      });
+
+      /* Click outside hides results */
+      document.addEventListener('click', function (e) {
+        if (!wrapper.contains(e.target)) hideResults(els);
+      });
+    });
+  });
+}());
+</script>

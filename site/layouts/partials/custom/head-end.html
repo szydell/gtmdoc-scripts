@@ -56,6 +56,14 @@
   .dark a.gtm-html:hover { background: #60a5fa; color: #0f172a; }
   .dark a.gtm-pdf  { color: #f87171; border-color: #f87171; }
   .dark a.gtm-pdf:hover  { background: #f87171; color: #0f172a; }
+
+  /* Pagefind <mark> highlights inside Hextra search results */
+  .hextra-search-excerpt mark {
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+  }
 </style>
 {{- if eq .Section "manuals" }}
 <style>

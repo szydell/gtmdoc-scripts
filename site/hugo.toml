@@ -17,9 +17,7 @@ disablePathToLower = true
     display = true
   [params.search]
     enable = true
-    type = "flexsearch"
-    [params.search.flexsearch]
-      index = "heading"
+    type = "pagefind"
 
 [markup]
   [markup.goldmark]

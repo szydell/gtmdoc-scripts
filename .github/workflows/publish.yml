@@ -85,6 +85,12 @@ jobs:
           cd gtmdoc-scripts/site
           hugo --minify --gc --baseURL https://mumps.pl/
 
+      - name: Cache npm (pagefind binary)
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: npm-pagefind-${{ runner.os }}
+
       - name: Index site with Pagefind
         run: npx -y pagefind --site gtmdoc-scripts/site/public
 
