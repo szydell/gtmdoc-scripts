@@ -5,10 +5,20 @@ Migrates GT.M documentation HTML files to Markdown for Hugo (Hextra theme)
 """
 
 import os
+import re
 import shutil
 from pathlib import Path
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 import markdownify
+
+# Mapping of DocBook admonition CSS classes to Hextra callout types
+_ADMONITION_TYPES = {
+    'note': 'info',
+    'tip': 'default',
+    'important': 'important',
+    'warning': 'warning',
+    'caution': 'warning',
+}
 
 def clean_html(soup: BeautifulSoup):
     """Remove navigation wrappers, scripts, and hidden elements to keep only the content."""
@@ -19,10 +29,71 @@ def clean_html(soup: BeautifulSoup):
         script.decompose()
     for iframe in soup.find_all('iframe'):
         iframe.decompose()
+    # Remove DocBook "Return to top" links (class="returntotop") – Hextra provides scroll-to-top
+    for rtt in soup.find_all('p', class_='returntotop'):
+        rtt.decompose()
+    for a in soup.find_all('a', string=lambda t: t and t.strip() == 'Return to top'):
+        a.decompose()
+    # Remove DocBook ToC – Hextra renders its own "On this page" sidebar navigation
+    for toc in soup.find_all('div', class_='toc'):
+        toc.decompose()
     
     # Try to find the main content div or return body
-    content = soup.find('div', class_='sect1') or soup.find('div', class_='chapter') or soup.find('body')
+    content = (soup.find('div', class_='article')
+               or soup.find('div', class_='sect1')
+               or soup.find('div', class_='chapter')
+               or soup.find('body'))
     return content
+
+def transform_anchors(soup) -> dict:
+    """Replace <a id="..."> anchor targets with unique markers; return marker→span map.
+
+    Skips anchors inside heading tags – Hugo generates its own heading anchors.
+    Only preserves anchors needed for within-page cross-references (e.g. footnotes).
+    """
+    markers = {}
+    counter = 0
+    _HEADING_TAGS = {'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}
+    for a in soup.find_all('a', id=True):
+        # Don't inject span inside headings – it pollutes heading text and TOC
+        if a.parent and a.parent.name in _HEADING_TAGS:
+            continue
+        anchor_id = a['id']
+        key = f'ZZZANCHOR{counter}ZZZ'
+        counter += 1
+        markers[key] = f'<span id="{anchor_id}"></span>'
+        del a['id']
+        a.insert_before(NavigableString(key))
+    return markers
+
+
+def transform_admonitions(soup) -> dict:
+    """Replace DocBook admonition divs with unique markers; return marker→shortcode map."""
+    markers = {}
+    counter = 0
+    for css_class, callout_type in _ADMONITION_TYPES.items():
+        for div in soup.find_all('div', class_=css_class):
+            # Content td: has text but no image
+            content_td = div.find('td', attrs={'align': 'left', 'valign': 'top'})
+            if not content_td:
+                # Fallback: first td without an img child
+                for td in div.find_all('td'):
+                    if not td.find('img') and td.get_text(strip=True):
+                        content_td = td
+                        break
+            if not content_td:
+                continue
+            inner_md = markdownify.markdownify(
+                content_td.decode_contents().replace('\u00a0', ' '),
+                heading_style='ATX',
+                strip=['script', 'style'],
+            ).strip()
+            key = f'ZZZADMONITION{counter}ZZZ'
+            counter += 1
+            markers[key] = f'{{{{< callout type="{callout_type}" >}}}}\n{inner_md}\n{{{{< /callout >}}}}'
+            div.replace_with(NavigableString(key))
+    return markers
+
 
 def rewrite_href(href: str) -> str:
     """Rewrite HTML file links to Hugo pretty URLs, leave PDFs and external links as-is."""
@@ -103,10 +174,29 @@ def index_html_to_markdown(soup: BeautifulSoup) -> str:
     return "\n".join(lines)
 
 
+def rewrite_html_links(md: str, current_stem: str) -> str:
+    """Rewrite ](foo.html) and ](foo.html#anchor) Markdown links to Hugo pretty URLs.
+
+    - Same-page references (foo == current_stem): strip filename, keep only #anchor.
+    - Sibling page references: rewrite to ../foo/ (or ../foo/#anchor).
+    """
+    def _replace(m):
+        stem = m.group(1)          # filename without .html
+        anchor = m.group(2) or ''  # '#anchor' or '' (group is None when absent)
+        if stem == current_stem:
+            # Same page – keep anchor only (or drop entirely if no anchor)
+            return f"]({anchor})" if anchor else "]()"
+        # Sibling page
+        return f"](../{stem}/{anchor})"
+
+    # Match ](stem.html) and ](stem.html#anchor)
+    return re.sub(r'\]\(([^)#\s]+?)\.html(#[^)\s]*)?\)', _replace, md)
+
+
 def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = False):
     if not file_path.exists():
         return
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+    with open(file_path, "rb") as f:
         soup = BeautifulSoup(f, "html.parser")
     
     title_tag = soup.find("title")
@@ -136,17 +226,24 @@ def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = 
         src_md = src.replace(".html", "")
         md_content = f"## {title}\n\nSee: [{src_md}]({src_md}/)\n"
         with open(output_file, "w", encoding="utf-8") as f:
-            f.write(f"---\ntitle: \"{title}\"\ntoc: false\n---\n\n")
+            f.write(f"---\ntitle: \"{title}\"\ndescription: \"{title}\"\ntoc: false\n---\n\n")
             f.write(md_content)
         return
 
     if not content:
         return
-        
-    md_content = markdownify.markdownify(str(content), heading_style="ATX", strip=['script', 'style'])
-    
+
+    anchor_markers = transform_anchors(content)
+    markers = transform_admonitions(content)
+    md_content = markdownify.markdownify(str(content).replace('\u00a0', ' '), heading_style="ATX", strip=['script', 'style'])
+    for key, shortcode in markers.items():
+        md_content = md_content.replace(key, shortcode)
+    for key, span in anchor_markers.items():
+        md_content = md_content.replace(key, span)
+    md_content = rewrite_html_links(md_content, file_path.stem)
+
     with open(output_file, "w", encoding="utf-8") as f:
-        f.write(f"---\ntitle: \"{title}\"\nsidebar:\n  hide: true\n---\n\n")
+        f.write(f"---\ntitle: \"{title}\"\ndescription: \"{title}\"\nsidebar:\n  hide: true\n---\n\n")
         f.write(md_content)
 
 def traverse_and_convert(src_dir: Path, dest_dir: Path):
@@ -166,7 +263,7 @@ def traverse_and_convert(src_dir: Path, dest_dir: Path):
             if not auto_index.exists():
                 section_title = rel_path.name.replace("-", " ").replace("_", " ").title()
                 with open(auto_index, "w", encoding="utf-8") as f:
-                    f.write(f"---\ntitle: \"{section_title}\"\ntoc: false\n---\n")
+                    f.write(f"---\ntitle: \"{section_title}\"\ndescription: \"{section_title}\"\ntoc: false\n---\n")
         
         for file in files:
             if file.endswith(".html"):
