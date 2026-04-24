@@ -343,7 +343,14 @@ def maybe_commit_and_push(args: argparse.Namespace, target_repo: Path) -> None:
         # current HEAD if it does — safe for both fresh clones and subsequent runs.
         run(["git", "checkout", "-B", args.branch], cwd=target_repo, dry_run=args.dry_run)
         run(["git", "add", "-A"], cwd=target_repo, dry_run=args.dry_run)
-        run(["git", "commit", "-m", msg], cwd=target_repo, dry_run=args.dry_run)
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=str(target_repo),
+        )
+        if result.returncode == 0:
+            print("No changes to commit.")
+        else:
+            run(["git", "commit", "-m", msg], cwd=target_repo, dry_run=args.dry_run)
 
     if args.push:
         # Use HEAD:branch so the push works regardless of local HEAD state.

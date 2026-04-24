@@ -93,12 +93,21 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Sync to S3
+        id: s3sync
         run: |
-          aws s3 sync gtmdoc-scripts/site/public/ s3://${{ vars.AWS_S3_BUCKET }}/ \
+          SYNC_OUTPUT=$(aws s3 sync gtmdoc-scripts/site/public/ s3://${{ vars.AWS_S3_BUCKET }}/ \
             --delete \
-            --region ${{ vars.AWS_REGION }}
+            --region ${{ vars.AWS_REGION }})
+          echo "$SYNC_OUTPUT"
+          if [ -n "$SYNC_OUTPUT" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected — skipping CloudFront invalidation."
+          fi
 
       - name: Invalidate CloudFront cache
+        if: steps.s3sync.outputs.changed == 'true'
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ vars.AWS_CF_DISTRIBUTION_ID }} \
@@ -122,5 +131,5 @@ jobs:
             echo "No changes to publish"
           else
             git commit -m "Publish Hugo site (${TIMESTAMP})"
-            git push origin HEAD:main
+            git push --force origin HEAD:main
           fi
