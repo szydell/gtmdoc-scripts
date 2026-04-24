@@ -1,6 +1,6 @@
 {{- $placeholder := (T "searchPlaceholder") | default "Search..." -}}
 
-<div class="hextra-search-wrapper hx:relative hx:md:w-64">
+<div class="hextra-search-wrapper hx:relative hx:md:w-64" data-pagefind-url="{{ "pagefind/pagefind.js" | relURL }}">
   <div class="hx:relative hx:flex hx:items-center hx:text-gray-900 hx:contrast-more:text-gray-800 hx:dark:text-gray-300 hx:contrast-more:dark:text-gray-300">
     <input
       placeholder="{{ $placeholder }}"
@@ -34,7 +34,7 @@
 
   var pagefindModule = null;
   var debounceTimer = null;
-  var PAGEFIND_URL = {{ "pagefind/pagefind.js" | relURL | jsonify }};
+  var PAGEFIND_URL = (document.querySelector('.hextra-search-wrapper') || {}).dataset.pagefindUrl || '/pagefind/pagefind.js';
 
   /* ── helpers ── */
 
