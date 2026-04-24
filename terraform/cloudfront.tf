@@ -10,6 +10,20 @@ resource "aws_cloudfront_function" "rewrite_uri" {
   code    = <<-EOF
     function handler(event) {
       var request = event.request;
+
+      // Redirect www → apex
+      var host = request.headers.host && request.headers.host.value;
+      if (host && host.startsWith('www.')) {
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: {
+            location: { value: 'https://mumps.pl' + request.uri }
+          }
+        };
+      }
+
+      // Dopisz index.html do żądań katalogowych
       var uri = request.uri;
       if (uri.endsWith('/')) {
         request.uri += 'index.html';
