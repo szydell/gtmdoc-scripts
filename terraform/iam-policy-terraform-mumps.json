@@ -112,6 +112,32 @@
         "route53:ChangeTagsForResource"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "InternetMonitor",
+      "Effect": "Allow",
+      "Action": [
+        "internetmonitor:CreateMonitor",
+        "internetmonitor:UpdateMonitor",
+        "internetmonitor:DeleteMonitor",
+        "internetmonitor:GetMonitor",
+        "internetmonitor:ListMonitors",
+        "internetmonitor:TagResource",
+        "internetmonitor:UntagResource",
+        "internetmonitor:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "InternetMonitorServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::*:role/aws-service-role/internetmonitor.amazonaws.com/AWSServiceRoleForInternetMonitor",
+      "Condition": {
+        "StringLike": {
+          "iam:AWSServiceName": "internetmonitor.amazonaws.com"
+        }
+      }
     }
   ]
 }
