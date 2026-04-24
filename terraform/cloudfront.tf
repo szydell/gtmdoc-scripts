@@ -38,6 +38,7 @@ resource "aws_cloudfront_distribution" "site" {
   price_class         = var.price_class
   web_acl_id          = var.web_acl_id != "" ? var.web_acl_id : null
   aliases             = [var.domain_name, "www.${var.domain_name}"]
+  tags                = { Name = var.domain_name }
 
   # Źródło — S3 bucket (dostęp przez OAC, nie publiczny URL)
   origin {
