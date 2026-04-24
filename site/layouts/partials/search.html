@@ -74,7 +74,6 @@
   async function initPagefind() {
     if (pagefindModule) return pagefindModule;
     pagefindModule = await import(PAGEFIND_URL);
-    await pagefindModule.init();
     return pagefindModule;
   }
 
