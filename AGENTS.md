@@ -48,7 +48,8 @@ uv run migrate.py
 Key `hugo.toml` flags:
 - `disablePathToLower = true` — preserves original file case in URLs
 - `markup.goldmark.renderer.unsafe = true` — allows raw HTML in Markdown
-- `params.search.type = "flexsearch"` — client-side search
+- `params.search.type = "flexsearch"`, `index = "content"` — client-side full-text search (FlexSearch); index is ~7MB but served from CloudFront edge and cached by the browser
+- `[[menus.main]]` with `type = "search"` — search input in navbar (desktop)
 - `[[menus.main]]` with `type = "theme-toggle"` — dark/light toggle in navbar
 
 ---
