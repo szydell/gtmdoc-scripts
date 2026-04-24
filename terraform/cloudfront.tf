@@ -32,6 +32,7 @@ resource "aws_cloudfront_origin_access_control" "site" {
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   is_ipv6_enabled     = true
+  http_version        = "http2and3"
   comment             = "${var.domain_name} — static site"
   default_root_object = "index.html"
   price_class         = var.price_class
