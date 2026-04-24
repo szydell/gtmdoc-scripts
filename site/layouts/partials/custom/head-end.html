@@ -57,3 +57,18 @@
   .dark a.gtm-pdf  { color: #f87171; border-color: #f87171; }
   .dark a.gtm-pdf:hover  { background: #f87171; color: #0f172a; }
 </style>
+{{- if eq .Section "manuals" }}
+<style>
+  :root {
+    --hextra-max-content-width: 100%;
+  }
+  @media (min-width: 768px) {
+    .hextra-sidebar-container {
+      width: 20rem; /* default: 16rem (w-64); +25% */
+    }
+    .hx\:md\:w-64 {
+      width: 20rem;
+    }
+  }
+</style>
+{{- end -}}

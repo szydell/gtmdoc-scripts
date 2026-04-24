@@ -294,7 +294,7 @@ def rewrite_html_links(md: str, current_stem: str) -> str:
 
 def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = False,
                       weight: int | None = None, hide_sidebar: bool = True,
-                      content_type: str | None = None):
+                      content_type: str | None = None, cascade: dict | None = None):
     if not file_path.exists():
         return
     with open(file_path, "rb") as f:
@@ -356,6 +356,10 @@ def process_html_file(file_path: Path, output_file: Path, is_root_index: bool = 
             fm += f'weight: {weight}\n'
         if hide_sidebar:
             fm += 'sidebar:\n  hide: true\n'
+        if cascade:
+            fm += 'cascade:\n'
+            for k, v in cascade.items():
+                fm += f'  {k}: {v}\n'
         fm += '---\n\n'
         f.write(fm)
         f.write(md_content)
@@ -428,7 +432,8 @@ def traverse_and_convert(src_dir: Path, dest_dir: Path):
                         # hide_sidebar=False: sidebar stays visible on the landing page
                         # content_type="docs": use docs/list layout (sidebar-enabled)
                         process_html_file(src, target_dir / "_index.md",
-                                          hide_sidebar=False, content_type="docs")
+                                          hide_sidebar=False, content_type="docs",
+                                          cascade={"width": "full"})
                         continue
                     # All other manual pages: preserve TOC order via weight,
                     # keep sidebar visible so users can always navigate.
