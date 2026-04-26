@@ -70,5 +70,20 @@
       width: 20rem;
     }
   }
+
+  @media (max-width: 767px) {
+    /*
+      Hextra's mobile sidebar normally renders only entries from menus.main.
+      Manuals need the generated docs tree instead, because mirrored pages do not
+      have reliable previous/next links.
+    */
+    .hextra-sidebar-container > .hextra-scrollbar > ul.hx\:md\:hidden {
+      display: none !important;
+    }
+
+    .hextra-sidebar-container > .hextra-scrollbar > ul.hx\:max-md\:hidden {
+      display: flex !important;
+    }
+  }
 </style>
 {{- end -}}
