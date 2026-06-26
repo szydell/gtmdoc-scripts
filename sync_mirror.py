@@ -569,8 +569,15 @@ def mirror(args: argparse.Namespace, script_dir: Path) -> Path:
     )
 
     index_path = mirror_dir / "index.html"
-    if not index_path.exists():
-        print("Primary crawler did not fetch index.html; trying wget fallback.")
+    crawl_successes = int(fetch_report.get("status_counts", {}).get("success", 0))  # type: ignore[union-attr]
+    crawl_attempted = int(fetch_report.get("attempted", 0))  # type: ignore[arg-type]
+    need_fallback = not index_path.exists() or (crawl_attempted > 0 and crawl_successes == 0)
+    if need_fallback:
+        if not index_path.exists():
+            reason = "index.html missing"
+        else:
+            reason = f"crawler made 0 successful downloads ({crawl_attempted} attempted, all blocked)"
+        print(f"Primary crawler ineffective ({reason}); trying wget fallback.")
         fallback_report = wget_fallback_bootstrap(
             source_host=source_host,
             mirror_dir=mirror_dir,
