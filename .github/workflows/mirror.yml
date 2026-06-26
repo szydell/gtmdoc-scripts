@@ -22,12 +22,15 @@ jobs:
       - name: Verify runner prerequisites
         run: |
           set -euo pipefail
-          for cmd in wget rsync git tar pdftotext; do
+          for cmd in wget rsync git tar; do
             command -v "$cmd" >/dev/null || {
               echo "::error::Missing required tool on self-hosted runner: $cmd"
               exit 1
             }
           done
+          if ! command -v pdftotext >/dev/null; then
+            echo "::warning::pdftotext missing; README revision metadata from PDFs will be skipped"
+          fi
 
       - name: Checkout gtmdoc-scripts
         uses: actions/checkout@v7
