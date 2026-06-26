@@ -549,6 +549,34 @@ def rewrite_html(source_root: Path, source_host: str, target_domain: str) -> tup
     return len(html_paths), changed
 
 
+def unrewrite_html(source_root: Path, source_host: str, target_domain: str) -> int:
+    """Reverse a previous rewrite_html pass: restore target_domain links back to source_host.
+
+    Called before a wget crawl so that wget finds the original fis-gtm URLs in cached
+    HTML files (not the already-rewritten mumps.pl URLs) and can follow them correctly.
+    """
+    rules = [
+        (f"https://{target_domain}", f"https://{source_host}"),
+        (f"//{target_domain}", f"//{source_host}"),
+    ]
+    changed = 0
+    for html in source_root.rglob(HTML_GLOB):
+        raw = html.read_bytes()
+        try:
+            text = raw.decode("utf-8")
+            encoding = "utf-8"
+        except UnicodeDecodeError:
+            text = raw.decode("latin-1")
+            encoding = "latin-1"
+        new_text = text
+        for old, new in rules:
+            new_text = new_text.replace(old, new)
+        if new_text != text:
+            html.write_text(new_text, encoding=encoding)
+            changed += 1
+    return changed
+
+
 def grep_for_source(source_root: Path, source_host: str) -> int:
     count = 0
     for path in source_root.rglob(HTML_GLOB):
@@ -602,6 +630,11 @@ def mirror(args: argparse.Namespace, script_dir: Path) -> Path:
         else:
             reason = f"crawler made 0 successful downloads ({crawl_attempted} attempted, all blocked)"
         print(f"Primary crawler ineffective ({reason}); trying wget fallback.")
+        # Restore original source URLs in cached HTML files so wget can follow
+        # fis-gtm.sourceforge.io links instead of the already-rewritten mumps.pl ones.
+        reverted = unrewrite_html(mirror_dir, source_host, args.target_domain)
+        if reverted:
+            print(f"Reverted {reverted} HTML files to original source URLs before wget run.")
         fallback_report = wget_fallback_bootstrap(
             source_host=source_host,
             mirror_dir=mirror_dir,
