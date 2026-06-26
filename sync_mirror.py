@@ -358,6 +358,58 @@ def fetch_urls_with_retry(
         "remaining_queue": len(queue),
     }
 
+
+def build_wget_base_cmd(mirror_dir: Path, source_host: str) -> list[str]:
+    return [
+        "wget",
+        "--mirror",
+        "--recursive",
+        "--level=inf",
+        "--no-parent",
+        "--page-requisites",
+        "--convert-links",
+        "--adjust-extension",
+        "--no-host-directories",
+        f"--domains={source_host}",
+        "--execute",
+        "robots=off",
+        "--wait=2",
+        "--random-wait",
+        "--directory-prefix",
+        str(mirror_dir),
+    ]
+
+
+def run_wget_seed_with_retry(base_cmd: list[str], url: str, max_retries: int = 3) -> int:
+    for attempt in range(1, max_retries + 1):
+        rc = run_returncode(base_cmd + [url])
+        if rc == 0:
+            return 0
+        if rc in {4, 8} and attempt < max_retries:
+            backoff_sleep(attempt)
+            continue
+        return rc
+    return 1
+
+
+def wget_fallback_bootstrap(
+    source_host: str,
+    mirror_dir: Path,
+    seed_urls: set[str],
+) -> dict[str, object]:
+    require_tool("wget")
+    base_cmd = build_wget_base_cmd(mirror_dir, source_host)
+
+    results: dict[str, int] = {}
+    for seed in sorted(seed_urls):
+        results[seed] = run_wget_seed_with_retry(base_cmd, seed)
+
+    return {
+        "attempted": len(seed_urls),
+        "exit_codes": results,
+        "all_success": all(code == 0 for code in results.values()),
+    }
+
 def require_tool(name: str) -> None:
     if shutil.which(name) is None:
         raise SystemExit(f"Missing required tool: {name}")
@@ -516,6 +568,16 @@ def mirror(args: argparse.Namespace, script_dir: Path) -> Path:
         dry_run=args.dry_run,
     )
 
+    index_path = mirror_dir / "index.html"
+    if not index_path.exists():
+        print("Primary crawler did not fetch index.html; trying wget fallback.")
+        fallback_report = wget_fallback_bootstrap(
+            source_host=source_host,
+            mirror_dir=mirror_dir,
+            seed_urls=seed_urls,
+        )
+        fetch_report["wget_fallback"] = fallback_report
+
     report_path = work_dir / "mirror_fetch_report.json"
     report_path.write_text(json.dumps(fetch_report, indent=2, sort_keys=True), encoding="utf-8")
     status_counts = fetch_report.get("status_counts", {})
@@ -530,7 +592,6 @@ def mirror(args: argparse.Namespace, script_dir: Path) -> Path:
     if stale_refs:
         print(f"Warning: {stale_refs} HTML files still contain '{source_host}'")
 
-    index_path = mirror_dir / "index.html"
     if not index_path.exists():
         raise SystemExit("Mirror failed: index.html missing in staging")
 
