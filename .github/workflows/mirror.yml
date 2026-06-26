@@ -17,12 +17,13 @@ permissions:
 jobs:
   mirror:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Setup OS utilities (wget, rsync, git, poppler-utils)
         run: sudo apt-get update && sudo apt-get install -y wget rsync git tar poppler-utils
 
       - name: Checkout gtmdoc-scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: gtmdoc-scripts
 
@@ -30,34 +31,58 @@ jobs:
         env:
           GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
         run: |
+          set -euo pipefail
           REPO_URL="https://x-access-token:${GTMDOC_PAT}@github.com/szydell/gtmdoc.git"
-          if git clone --depth=1 "$REPO_URL" gtmdoc 2>/dev/null; then
+          if git clone --depth=1 "$REPO_URL" gtmdoc; then
             echo "Cloned existing repo"
+          else
+            echo "::error::Failed to clone gtmdoc target repository"
+            exit 1
           fi
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Cache uv downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium
 
       - name: Restore Mirror Cache (Delta Updates)
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: gtmdoc-scripts/.work/mirror
-          key: gtm-mirror-${{ github.run_id }}
+          key: gtm-mirror-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            gtm-mirror-
+            gtm-mirror-${{ runner.os }}-
 
       - name: Setup Git identity
         run: |
+          set -euo pipefail
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc-scripts
-          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/gtmdoc-scripts"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/gtmdoc"
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cd gtmdoc-scripts
+          uv run playwright install --with-deps chromium
 
       - name: Run Mirror Sync
         run: |
+          set -euo pipefail
           cd gtmdoc-scripts
-          uv add playwright
-          uv run playwright install --with-deps chromium
           uv run python sync_mirror.py \
             --target-repo ../gtmdoc \
             --target-domain mumps.pl \

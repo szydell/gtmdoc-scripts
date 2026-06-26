@@ -20,6 +20,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Przy workflow_run: tylko jeśli mirror zakończył się sukcesem
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -27,32 +28,40 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y rsync git
 
       - name: Checkout gtmdoc-scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: gtmdoc-scripts
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Cache uv downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
 
       - name: Restore Mirror Cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: gtmdoc-scripts/.work/mirror
-          key: gtm-mirror-never-match
+          key: gtm-mirror-publish-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            gtm-mirror-
+            gtm-mirror-${{ runner.os }}-
 
       - name: Setup Git identity
         run: |
+          set -euo pipefail
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc-scripts
-          git config --global --add safe.directory /__w/gtmdoc-scripts/gtmdoc-scripts/gtmdoc-mumps.pl
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/gtmdoc-scripts"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/gtmdoc-mumps.pl"
 
       - name: Checkout gtmdoc-mumps.pl site repo
         env:
           GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
         run: |
+          set -euo pipefail
           REPO_URL="https://x-access-token:${GTMDOC_PAT}@github.com/szydell/gtmdoc-mumps.pl.git"
           if git clone --depth=1 "$REPO_URL" gtmdoc-mumps.pl 2>/dev/null; then
             echo "Cloned gtmdoc-mumps.pl"
@@ -65,6 +74,7 @@ jobs:
 
       - name: Run migrate.py
         run: |
+          set -euo pipefail
           cd gtmdoc-scripts
           uv run python migrate.py
 
@@ -76,6 +86,7 @@ jobs:
 
       - name: Install Hugo Extended
         run: |
+          set -euo pipefail
           HUGO_VERSION=0.152.2
           wget -q "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
           sudo dpkg -i "hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
@@ -83,6 +94,7 @@ jobs:
 
       - name: Build Hugo site for S3/mumps.pl
         run: |
+          set -euo pipefail
           cd gtmdoc-scripts/site
           hugo --minify --gc --baseURL https://mumps.pl/
 
@@ -96,26 +108,29 @@ jobs:
       - name: Sync to S3
         id: s3sync
         run: |
-          SYNC_OUTPUT=$(aws s3 sync gtmdoc-scripts/site/public/ s3://${{ vars.AWS_S3_BUCKET }}/ \
+          set -euo pipefail
+          SYNC_OUTPUT=$(aws s3 sync gtmdoc-scripts/site/public/ "s3://${{ vars.AWS_S3_BUCKET }}/" \
             --delete \
-            --region ${{ vars.AWS_REGION }})
+            --region "${{ vars.AWS_REGION }}")
           echo "$SYNC_OUTPUT"
           if [ -n "$SYNC_OUTPUT" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No changes detected — skipping CloudFront invalidation."
           fi
 
       - name: Invalidate CloudFront cache
         if: steps.s3sync.outputs.changed == 'true'
         run: |
+          set -euo pipefail
           aws cloudfront create-invalidation \
             --distribution-id ${{ vars.AWS_CF_DISTRIBUTION_ID }} \
             --paths "/*"
 
       - name: Sync static site to gtmdoc-mumps.pl
         run: |
+          set -euo pipefail
           rsync -a --delete \
             --exclude='.git/' \
             gtmdoc-scripts/site/public/ \
@@ -125,6 +140,7 @@ jobs:
         env:
           GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
         run: |
+          set -euo pipefail
           cd gtmdoc-mumps.pl
           TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
           git add -A
