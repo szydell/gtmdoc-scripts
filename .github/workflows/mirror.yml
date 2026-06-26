@@ -36,6 +36,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: gtmdoc-scripts
+          clean: false
 
       - name: Checkout or init gtmdoc target repo
         env:
@@ -59,13 +60,25 @@ jobs:
           path: ~/.cache/uv
           key: uv-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
 
-      - name: Restore Mirror Cache (Delta Updates)
-        uses: actions/cache@v6
-        with:
-          path: gtmdoc-scripts/.work/mirror
-          key: gtm-mirror-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            gtm-mirror-${{ runner.os }}-
+      - name: Prepare local mirror cache directory
+        run: |
+          set -euo pipefail
+          mkdir -p gtmdoc-scripts/.work/mirror
+
+      - name: Diagnose mirror cache state
+        run: |
+          set -euo pipefail
+          CACHE_DIR="gtmdoc-scripts/.work/mirror"
+          echo "Cache dir: $CACHE_DIR"
+          du -sh "$CACHE_DIR" || true
+          echo "Total files: $(find "$CACHE_DIR" -type f | wc -l)"
+          echo "HTML files: $(find "$CACHE_DIR" -type f -name '*.html' | wc -l)"
+          if [[ -f "gtmdoc-scripts/.work/mirror_fetch_report.json" ]]; then
+            echo "Previous fetch report found:"
+            tail -n 40 gtmdoc-scripts/.work/mirror_fetch_report.json || true
+          else
+            echo "No previous fetch report found."
+          fi
 
       - name: Setup Git identity
         run: |
