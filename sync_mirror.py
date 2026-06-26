@@ -361,9 +361,12 @@ def fetch_urls_with_retry(
 
 def _wget_supports_option(option: str) -> bool:
     """Return True if the installed wget accepts the given option (wget2 specific flags)."""
+    wget_bin = shutil.which("wget")
+    if wget_bin is None:
+        return False
     try:
         result = subprocess.run(  # nosec B603
-            ["wget", option, "--help"],
+            [wget_bin, option, "--help"],
             capture_output=True, text=True,
         )
         return result.returncode == 0
