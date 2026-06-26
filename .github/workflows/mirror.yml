@@ -44,7 +44,16 @@ jobs:
         run: |
           set -euo pipefail
           REPO_URL="https://x-access-token:${GTMDOC_PAT}@github.com/szydell/gtmdoc.git"
-          if git clone --depth=1 "$REPO_URL" gtmdoc; then
+          if [[ -d gtmdoc/.git ]]; then
+            echo "Reusing existing gtmdoc checkout"
+            git -C gtmdoc remote set-url origin "$REPO_URL"
+            git -C gtmdoc fetch --depth=1 origin main
+            git -C gtmdoc checkout -B main origin/main
+            git -C gtmdoc clean -fdx
+          elif [[ -e gtmdoc ]]; then
+            echo "::error::Path gtmdoc exists but is not a git repository"
+            exit 1
+          elif git clone --depth=1 "$REPO_URL" gtmdoc; then
             echo "Cloned existing repo"
           else
             echo "::error::Failed to clone gtmdoc target repository"
