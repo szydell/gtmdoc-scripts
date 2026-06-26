@@ -359,8 +359,20 @@ def fetch_urls_with_retry(
     }
 
 
+def _wget_supports_option(option: str) -> bool:
+    """Return True if the installed wget accepts the given option (wget2 specific flags)."""
+    try:
+        result = subprocess.run(  # nosec B603
+            ["wget", option, "--help"],
+            capture_output=True, text=True,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
 def build_wget_base_cmd(mirror_dir: Path, source_host: str) -> list[str]:
-    return [
+    cmd = [
         "wget",
         "--mirror",
         "--recursive",
@@ -373,20 +385,29 @@ def build_wget_base_cmd(mirror_dir: Path, source_host: str) -> list[str]:
         f"--domains={source_host}",
         "--execute",
         "robots=off",
-        "--wait=2",
+        "--wait=5",          # 5 s between requests; --random-wait makes it 2.5–7.5 s
         "--random-wait",
+        "--waitretry=120",   # wait up to 2 min before retrying a throttled URL
         "--directory-prefix",
         str(mirror_dir),
     ]
+    # wget2 defaults to 5 parallel threads which triggers 429; force sequential.
+    if _wget_supports_option("--max-threads=1"):
+        cmd.append("--max-threads=1")
+    return cmd
 
 
-def run_wget_seed_with_retry(base_cmd: list[str], url: str, max_retries: int = 3) -> int:
+def run_wget_seed_with_retry(base_cmd: list[str], url: str, max_retries: int = 4) -> int:
     for attempt in range(1, max_retries + 1):
         rc = run_returncode(base_cmd + [url])
         if rc == 0:
             return 0
         if rc in {4, 8} and attempt < max_retries:
-            backoff_sleep(attempt)
+            # wget exit 8 covers HTTP 4xx/5xx including 429 (rate-limited).
+            # Wait several minutes before re-running the entire seed crawl.
+            sleep_secs = 120 * attempt + jitter(0.0, 30.0)
+            print(f"wget exit {rc} on attempt {attempt}/{max_retries}; retrying in {sleep_secs:.0f}s")
+            time.sleep(sleep_secs)
             continue
         return rc
     return 1
