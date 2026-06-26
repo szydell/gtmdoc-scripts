@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import random
 import re
+import secrets
 import time
 import shutil
 import subprocess  # nosec B404
@@ -48,6 +48,14 @@ INDEX_HTML = "index.html"
 HTML_GLOB = "*.html"
 
 
+def jitter(low: float, high: float) -> float:
+    if high <= low:
+        return low
+    span = high - low
+    # Use secrets to avoid Bandit B311 on random.* in CI policy.
+    return low + (secrets.randbelow(1_000_000) / 1_000_000.0) * span
+
+
 def run(cmd: list[str], cwd: Path | None = None, dry_run: bool = False, ignore_codes: list[int] | None = None) -> None:
     pretty = " ".join(cmd)
     print(f"$ {pretty}")
@@ -60,6 +68,19 @@ def run(cmd: list[str], cwd: Path | None = None, dry_run: bool = False, ignore_c
             print(f"Command returned ignored exit code {e.returncode}")
         else:
             raise
+
+
+def run_returncode(cmd: list[str], cwd: Path | None = None, dry_run: bool = False) -> int:
+    pretty = " ".join(cmd)
+    print(f"$ {pretty}")
+    if dry_run:
+        return 0
+    result = subprocess.run(  # nosec B603
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        check=False,
+    )
+    return result.returncode
 
 
 def normalize_source_url(url: str, source_host: str) -> str | None:
@@ -159,7 +180,7 @@ def get_robot_parser(source_url: str) -> RobotFileParser | None:
 
 
 def backoff_sleep(attempt: int) -> None:
-    time.sleep((2 ** (attempt - 1)) + random.uniform(0.0, 1.0))
+    time.sleep((2 ** (attempt - 1)) + jitter(0.0, 1.0))
 
 
 def classify_http_status(status_code: int, attempt: int, max_retries: int) -> str:
@@ -180,7 +201,7 @@ def perform_request(session: object, url: str) -> object:
         timeout=30,
         allow_redirects=True,
         impersonate="chrome",
-        headers={"User-Agent": random.choice(USER_AGENTS)},
+        headers={"User-Agent": secrets.choice(USER_AGENTS)},
     )
 
 
@@ -327,7 +348,7 @@ def fetch_urls_with_retry(
                 track_samples(status, normalized, sample_403, sample_errors)
             push_discovered_urls(queue, visited, discovered_urls)
 
-            time.sleep(random.uniform(0.35, 1.1))
+            time.sleep(jitter(0.35, 1.1))
 
     return {
         "attempted": len(visited),
@@ -346,11 +367,12 @@ def parse_pdf_info(pdf_path: Path) -> tuple[str, str]:
     """Extract version (e.g. V7.1-011) and publication date from a GT.M PDF."""
     if not pdf_path.exists():
         return "", ""
-    if shutil.which("pdftotext") is None:
+    pdftotext_bin = shutil.which("pdftotext")
+    if pdftotext_bin is None:
         return "", ""
     try:
         result = subprocess.run(  # nosec B603
-            ["pdftotext", "-f", "1", "-l", "2", str(pdf_path), "-"],
+            [pdftotext_bin, "-f", "1", "-l", "2", str(pdf_path), "-"],
             capture_output=True, text=True, check=True,
         )
     except subprocess.CalledProcessError:
@@ -543,23 +565,26 @@ def maybe_commit_and_push(args: argparse.Namespace, target_repo: Path) -> None:
     run(["git", "status", "--short"], cwd=target_repo, dry_run=args.dry_run)
 
     if args.commit or args.push:
+        git_bin = shutil.which("git")
+        if git_bin is None:
+            raise SystemExit("Missing required tool: git")
         # Ensure we are on the target branch (handles detached HEAD and empty repos).
         # git checkout -B creates the branch if it doesn't exist, or resets it to
         # current HEAD if it does — safe for both fresh clones and subsequent runs.
-        run(["git", "checkout", "-B", args.branch], cwd=target_repo, dry_run=args.dry_run)
-        run(["git", "add", "-A"], cwd=target_repo, dry_run=args.dry_run)
-        result = subprocess.run(
-            ["git", "diff", "--cached", "--quiet"],
-            cwd=str(target_repo),
-        )
-        if result.returncode == 0:
+        run([git_bin, "checkout", "-B", args.branch], cwd=target_repo, dry_run=args.dry_run)
+        run([git_bin, "add", "-A"], cwd=target_repo, dry_run=args.dry_run)
+        diff_rc = run_returncode([git_bin, "diff", "--cached", "--quiet"], cwd=target_repo, dry_run=args.dry_run)
+        if diff_rc == 0:
             print("No changes to commit.")
         else:
-            run(["git", "commit", "-m", msg], cwd=target_repo, dry_run=args.dry_run)
+            run([git_bin, "commit", "-m", msg], cwd=target_repo, dry_run=args.dry_run)
 
     if args.push:
+        git_bin = shutil.which("git")
+        if git_bin is None:
+            raise SystemExit("Missing required tool: git")
         # Use HEAD:branch so the push works regardless of local HEAD state.
-        run(["git", "push", "origin", f"HEAD:{args.branch}"], cwd=target_repo, dry_run=args.dry_run)
+        run([git_bin, "push", "origin", f"HEAD:{args.branch}"], cwd=target_repo, dry_run=args.dry_run)
 
 
 def main() -> int:
