@@ -17,7 +17,7 @@ permissions:
 jobs:
   mirror:
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 500
+    timeout-minutes: 720
     steps:
       - name: Verify runner prerequisites
         run: |
