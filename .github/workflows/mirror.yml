@@ -2,7 +2,7 @@ name: Daily Mirror
 
 on:
   schedule:
-    - cron: '0 4 * * *' # Codziennie o 4:00 UTC
+    - cron: '0 4 * * 6'
   workflow_dispatch: # Możliwość ręcznego odpalania
   push:
     branches:
