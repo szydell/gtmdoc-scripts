@@ -348,7 +348,7 @@ def fetch_urls_with_retry(
                 track_samples(status, normalized, sample_403, sample_errors)
             push_discovered_urls(queue, visited, discovered_urls)
 
-            time.sleep(jitter(0.35, 1.1))
+            time.sleep(jitter(0.1, 0.4))
 
     return {
         "attempted": len(visited),
@@ -388,9 +388,9 @@ def build_wget_base_cmd(mirror_dir: Path, source_host: str) -> list[str]:
         f"--domains={source_host}",
         "--execute",
         "robots=off",
-        "--wait=5",          # 5 s between requests; --random-wait makes it 2.5–7.5 s
+        "--wait=1",          # 1 s between requests; --random-wait makes it 0.5–1.5 s
         "--random-wait",
-        "--waitretry=120",   # wait up to 2 min before retrying a throttled URL
+        "--waitretry=30",    # wait up to 30 s before retrying a throttled URL
         "--directory-prefix",
         str(mirror_dir),
     ]
@@ -408,7 +408,7 @@ def run_wget_seed_with_retry(base_cmd: list[str], url: str, max_retries: int = 4
         if rc in {4, 8} and attempt < max_retries:
             # wget exit 8 covers HTTP 4xx/5xx including 429 (rate-limited).
             # Wait several minutes before re-running the entire seed crawl.
-            sleep_secs = 120 * attempt + jitter(0.0, 30.0)
+            sleep_secs = 30 * attempt + jitter(0.0, 10.0)
             print(f"wget exit {rc} on attempt {attempt}/{max_retries}; retrying in {sleep_secs:.0f}s")
             time.sleep(sleep_secs)
             continue
