@@ -57,7 +57,11 @@ jobs:
         run: |
           set -euo pipefail
           MIRROR_DIR="gtmdoc-scripts/.work/mirror"
-          HTML_COUNT=$(find "$MIRROR_DIR" -name '*.html' 2>/dev/null | wc -l)
+          if [[ -d "$MIRROR_DIR" ]]; then
+            HTML_COUNT=$(find "$MIRROR_DIR" -name '*.html' | wc -l)
+          else
+            HTML_COUNT=0
+          fi
           if [[ "$HTML_COUNT" -lt 10 ]]; then
             echo "Cache miss or stale (${HTML_COUNT} HTML files) — cloning gtmdoc repo"
             git clone --depth=1 \
