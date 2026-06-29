@@ -67,7 +67,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
+          key: uv-sh-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
+          restore-keys: |
+            uv-sh-${{ runner.os }}-
 
       - name: Prepare local mirror cache directory
         run: |

@@ -39,7 +39,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
+          key: uv-gh-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
+          restore-keys: |
+            uv-gh-${{ runner.os }}-
 
       - name: Restore Mirror Cache
         id: mirror-cache
