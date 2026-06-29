@@ -106,3 +106,10 @@ jobs:
             --target-domain mumps.pl \
             --commit \
             --push
+
+      - name: Save Mirror Cache
+        if: success()
+        uses: actions/cache/save@v6
+        with:
+          path: gtmdoc-scripts/.work/mirror
+          key: gtm-mirror-${{ runner.os }}-${{ github.run_id }}

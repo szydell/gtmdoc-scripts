@@ -596,10 +596,6 @@ def mirror(args: argparse.Namespace, script_dir: Path) -> Path:
     work_dir = (script_dir / args.work_dir).resolve()
     mirror_dir = work_dir / "mirror"
 
-    # Removed cleaning of mirror_dir by default to keep delta updates working.
-    if args.keep_work_dir or not args.dry_run:
-        pass # Allow the directory to exist for caching in CI
-
     if not args.dry_run:
         mirror_dir.mkdir(parents=True, exist_ok=True)
 

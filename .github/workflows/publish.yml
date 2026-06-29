@@ -42,12 +42,34 @@ jobs:
           key: uv-${{ runner.os }}-${{ hashFiles('gtmdoc-scripts/pyproject.toml') }}
 
       - name: Restore Mirror Cache
-        uses: actions/cache@v6
+        id: mirror-cache
+        uses: actions/cache/restore@v6
         with:
           path: gtmdoc-scripts/.work/mirror
           key: gtm-mirror-publish-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             gtm-mirror-${{ runner.os }}-
+
+      - name: Populate mirror from gtmdoc repo (cache miss fallback)
+        if: steps.mirror-cache.outputs.cache-hit != 'true'
+        env:
+          GTMDOC_PAT: ${{ secrets.GTMDOC_PAT }}
+        run: |
+          set -euo pipefail
+          MIRROR_DIR="gtmdoc-scripts/.work/mirror"
+          HTML_COUNT=$(find "$MIRROR_DIR" -name '*.html' 2>/dev/null | wc -l)
+          if [[ "$HTML_COUNT" -lt 10 ]]; then
+            echo "Cache miss or stale (${HTML_COUNT} HTML files) — cloning gtmdoc repo"
+            git clone --depth=1 \
+              "https://x-access-token:${GTMDOC_PAT}@github.com/szydell/gtmdoc.git" \
+              _gtmdoc_tmp
+            mkdir -p "$MIRROR_DIR"
+            rsync -a --exclude='.git/' --exclude='README.md' _gtmdoc_tmp/ "$MIRROR_DIR/"
+            rm -rf _gtmdoc_tmp
+            echo "Populated mirror: $(find "$MIRROR_DIR" -name '*.html' | wc -l) HTML files"
+          else
+            echo "Cache hit with ${HTML_COUNT} HTML files — skipping gtmdoc clone"
+          fi
 
       - name: Setup Git identity
         run: |
