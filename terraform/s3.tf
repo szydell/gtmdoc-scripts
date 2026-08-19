@@ -16,12 +16,36 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = true
 }
 
-# Wersjonowanie — ułatwia rollback po przypadkowym nadpisaniu
+# Wersjonowanie wyłączone (Suspended) — statyczna strona nie potrzebuje rollbacku,
+# a każdy deploy generował stare wersje, niepotrzebnie zwiększając koszty S3.
 resource "aws_s3_bucket_versioning" "site" {
   bucket = aws_s3_bucket.site.id
 
   versioning_configuration {
+    status = "Suspended"
+  }
+}
+
+# Lifecycle — natychmiastowe usuwanie starych wersji obiektów i delete markerów
+resource "aws_s3_bucket_lifecycle_configuration" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  # lifecycle musi być ustawiony po (lub razem z) zawieszeniem wersjonowania
+  depends_on = [aws_s3_bucket_versioning.site]
+
+  rule {
+    id     = "expire-noncurrent-versions"
     status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
+
+    expiration {
+      expired_object_delete_marker = true
+    }
   }
 }
 
