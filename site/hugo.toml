@@ -15,11 +15,10 @@ disablePathToLower = true
     displayLogo = true
   [params.footer]
     display = true
+  # Hextra's built-in FlexSearch is disabled in favor of Pagefind (see site/pagefind.yml
+  # and layouts/partials/search.html); Pagefind indexes the built HTML post-hugo-build.
   [params.search]
-    enable = true
-    type = "flexsearch"
-    [params.search.flexsearch]
-      index = "content"
+    enable = false
 
 [markup]
   [markup.goldmark]

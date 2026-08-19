@@ -1,0 +1,6 @@
+# Pagefind indexing config. Run from site/ via `npx pagefind --site public`.
+# nav/footer/script/form elements are ignored by Pagefind automatically;
+# these selectors cover Hextra chrome that isn't a nav/footer tag.
+exclude_selectors:
+  - ".hextra-sidebar-container"
+  - ".hextra-banner"

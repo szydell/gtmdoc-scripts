@@ -74,18 +74,38 @@ Then build/serve Hugo:
 
 ```bash
 cd site
-hugo server          # dev preview
+hugo server          # dev preview (no search — see below)
 hugo                 # production build → site/public/
 ```
+
+### Local preview with working search
+
+Site search is powered by [Pagefind](https://pagefind.app/), which indexes the **built HTML**
+after `hugo` runs — `/pagefind/` assets do not exist during a plain `hugo server` (in-memory)
+session. To preview the site with working search locally:
+
+```bash
+cd site
+npm ci                        # once, or after package.json changes
+hugo --minify
+npx pagefind --site public
+hugo server --renderToDisk    # serves the rendered public/ dir, incl. /pagefind/
+```
+
+CI (`.github/workflows/publish.yml`) runs the same sequence: migrate → `hugo --minify` →
+`pagefind --site public` → sync to S3 → invalidate CloudFront.
 
 ## Hugo customisations
 
 | File | Purpose |
 |---|---|
-| `site/hugo.toml` | `disablePathToLower = true`, flexsearch, theme-toggle in navbar |
+| `site/hugo.toml` | `disablePathToLower = true`, Hextra FlexSearch disabled (`params.search.enable = false`), theme-toggle in navbar |
+| `site/pagefind.yml` | Pagefind indexing config — excludes sidebar/banner chrome from the index |
+| `site/package.json` | `pagefind` devDependency (search indexing CLI) |
 | `site/layouts/index.html` | Home page: sidebar placeholder + TOC + content |
+| `site/layouts/partials/search.html` | Overrides Hextra's search trigger with Pagefind's Modal Search (`<pagefind-modal-trigger>`/`<pagefind-modal>`) |
 | `site/layouts/partials/navbar-title.html` | Inline SVG logo via `readFile` |
-| `site/layouts/partials/custom/head-end.html` | Logo CSS vars; badge styles; manuals full-width + wider sidebar overrides |
+| `site/layouts/partials/custom/head-end.html` | Logo CSS vars; badge styles; Pagefind component CSS/JS + dark-mode override; manuals full-width + wider sidebar overrides |
 | `site/static/images/gtmdoc.svg` | Logo — uses `var(--gtm-bg)` / `var(--gtm-fg)` |
 
 ### Manuals layout
