@@ -1,5 +1,5 @@
 baseURL = 'https://szydell.github.io/gtmdoc-mumps.pl/'
-languageCode = 'en-us'
+locale = 'en-us'
 title = 'GT.M Documentation'
 disablePathToLower = true
 
