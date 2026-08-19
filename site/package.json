@@ -1,0 +1,8 @@
+{
+  "name": "gtmdoc-site",
+  "private": true,
+  "description": "Search indexing tooling for the Hugo site (Pagefind)",
+  "devDependencies": {
+    "pagefind": "^1.5.0"
+  }
+}

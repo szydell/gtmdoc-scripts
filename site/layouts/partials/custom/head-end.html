@@ -1,4 +1,13 @@
+<link href="{{ \"pagefind/pagefind-component-ui.css\" | relURL }}" rel="stylesheet" />
+<script src="{{ \"pagefind/pagefind-component-ui.js\" | relURL }}" type="module"></script
 <style>
+  /* Pagefind's Component UI follows prefers-color-scheme; align it with Hextra's
+     explicit .dark toggle so search matches the page theme regardless of OS setting. */
+  .dark pagefind-modal,
+  [data-theme="dark"] pagefind-modal {
+    color-scheme: dark;
+  }
+
   /* GT.M logo sizing */
   .gtm-logo {
     width: 32px;
